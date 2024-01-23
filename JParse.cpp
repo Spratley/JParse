@@ -22,9 +22,10 @@ namespace JParse
         }
 
         // Remaining tokens must be an int or a float
-        size_t delim = contents.find(',');
-        delim = std::min(delim, contents.find('}'));
-        std::string token = contents.substr(0, delim);
+        std::string remainingParsable = contents.substr(offset);
+        size_t delim = remainingParsable.find(',');
+        delim = std::min(delim, remainingParsable.find('}'));
+        std::string token = remainingParsable.substr(0, delim);
         if (token.find('.') != std::string::npos)
         {
             return new Float;
@@ -265,10 +266,23 @@ namespace JParse
             outContents += ",\n";
         }
 
-        // Overwrite comma (Since there shouldn't be one on the last item)
-        outContents[outContents.size() - 2] = ' ';
+        if (m_contents.size() > 0)
+        {
+            // Overwrite comma (Since there shouldn't be one on the last item)
+            outContents[outContents.size() - 2] = ' ';
+        }
         tabLevel--;
         Append(outContents, "}", tabLevel);
+    }
+
+    void Object::Set(std::string const & name, Item * const item)
+    {
+        m_contents[name] = item;
+    }
+
+    bool const Object::Has(std::string const & name) const
+    {
+        return m_contents.count(name) > 0;
     }
 
     void JParse::Array::BuildContents(std::string& outContents, int& tabLevel)
@@ -287,8 +301,11 @@ namespace JParse
             outContents += ",\n";
         }
 
-        // Overwrite comma (Since there shouldn't be one on the last item)
-        outContents[outContents.size() - 2] = ' ';
+        if (m_contents.size() > 0)
+        {
+            // Overwrite comma (Since there shouldn't be one on the last item)
+            outContents[outContents.size() - 2] = ' ';
+        }
         tabLevel--;
         Append(outContents, "]", tabLevel);
     }
