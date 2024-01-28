@@ -6,19 +6,19 @@
 
 namespace JParse
 {
-    Item* CreateNextItem(std::string const& contents, int const offset)
+    std::shared_ptr<Item> CreateNextItem(std::string const& contents, int const offset)
     {
         switch (contents[offset])
         {
         case '{':
-            return new Object;
+            return std::make_unique<Object>();
         case '[':
-            return new Array;
+            return std::make_unique<Array>();
         case '"':
-            return new String;
+            return std::make_unique<String>();
         case 't':
         case 'f':
-            return new Boolean;
+            return std::make_unique<Boolean>();
         }
 
         // Remaining tokens must be an int or a float
@@ -28,9 +28,9 @@ namespace JParse
         std::string token = remainingParsable.substr(0, delim);
         if (token.find('.') != std::string::npos)
         {
-            return new Float;
+            return std::make_unique<Float>();
         }
-        return new Integer;
+        return std::make_unique<Integer>();
     }
 
     void JParse::Root::Parse(std::string const& filePath)
@@ -60,7 +60,6 @@ namespace JParse
         int offset = 0;
         m_item = CreateNextItem(contents, offset);
         m_item->Parse(contents, offset);
-
     }
 
     void JParse::Root::SaveToFile(std::string const& filePath)
@@ -85,6 +84,12 @@ namespace JParse
         }
     }
 
+    void Root::CreateNew()
+    {
+        // Assume we want to store every json file inside an object
+        m_item = std::make_unique<Object>();
+    }
+
     void JParse::Object::Parse(std::string const & contents, int& offset)
     {
         // Skip open bracket
@@ -102,8 +107,8 @@ namespace JParse
                 offset++;
             }
 
-            String str;
-            str.Parse(contents, offset);
+            String itemName;
+            itemName.Parse(contents, offset);
 
 #ifdef VERBOSE_VALIDATION
             if (contents[offset] != ':')
@@ -112,10 +117,10 @@ namespace JParse
             }
 #endif
             offset++;
-            Item* child = CreateNextItem(contents, offset);
-            child->Parse(contents, offset);
+            std::shared_ptr<Item> item = CreateNextItem(contents, offset);
+            item->Parse(contents, offset);
 
-            m_contents[str.m_value] = child;
+            m_contents[itemName.m_value] = item;
 
         } while (contents[offset] == ',');
 #ifdef VERBOSE_VALIDATION
@@ -147,10 +152,10 @@ namespace JParse
             }
 
             offset++;
-            Item* child = CreateNextItem(contents, offset);
-            child->Parse(contents, offset);
+            std::shared_ptr<Item> item = CreateNextItem(contents, offset);
+            item->Parse(contents, offset);
 
-            m_contents.push_back(child);
+            m_contents.push_back(item);
 
         } while (contents[offset] == ',');
 
@@ -217,22 +222,6 @@ namespace JParse
         }
     }
 
-    inline JParse::Object::~Object()
-    {
-        for (auto& item : m_contents)
-        {
-            delete item.second;
-        }
-    }
-
-    inline JParse::Array::~Array()
-    {
-        for (auto& item : m_contents)
-        {
-            delete item;
-        }
-    }
-
     void Append(std::string& str, std::string const& append, int const tabLevel)
     {
         for (int i = 0; i < tabLevel; i++)
@@ -275,7 +264,7 @@ namespace JParse
         Append(outContents, "}", tabLevel);
     }
 
-    void Object::Set(std::string const & name, Item * const item)
+    void Object::Set(std::string const & name, std::shared_ptr<Item> const item)
     {
         m_contents[name] = item;
     }
